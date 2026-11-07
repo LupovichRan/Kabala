@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en" dir="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Receipt Scanner</title>
+<meta name="theme-color" content="#0f766e">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<style>
+:root{--bg:#f4f6f6;--card:#fff;--fg:#14201f;--mut:#5b6b69;--acc:#0f766e;--bd:#d5dedd;--err:#b91c1c}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1514;--card:#182120;--fg:#e6eeed;--mut:#93a5a3;--acc:#2dd4bf;--bd:#2a3836;--err:#f87171}}
+*{box-sizing:border-box}body{margin:0;font:16px/1.4 system-ui,sans-serif;background:var(--bg);color:var(--fg)}
+header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;position:sticky;top:0;background:var(--bg);z-index:2}
+h1{font-size:1.15rem;margin:0}main{padding:0 16px 40px;max-width:640px;margin:auto}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:14px}
+button,.btn{font:inherit;border:0;border-radius:10px;padding:12px 16px;background:var(--acc);color:#fff;cursor:pointer;min-height:44px}
+@media(prefers-color-scheme:dark){button,.btn{color:#04201c}}
+button.sec,.btn.sec{background:transparent;color:var(--fg);border:1px solid var(--bd)}
+.row{display:flex;gap:10px;flex-wrap:wrap}.row>*{flex:1}
+label{display:block;font-size:.85rem;color:var(--mut);margin:10px 0 4px}
+input,select{width:100%;font:inherit;padding:10px;border-radius:8px;border:1px solid var(--bd);background:var(--bg);color:var(--fg)}
+.cropwrap{position:relative;line-height:0;touch-action:none}.cropwrap canvas,.cropwrap svg{width:100%;height:auto}
+.cropwrap svg{position:absolute;inset:0}polygon{fill:rgba(45,212,191,.18);stroke:#2dd4bf;stroke-width:4}circle{fill:#fff;stroke:#0f766e;stroke-width:5;cursor:grab}
+.thumbs{display:flex;gap:8px;overflow:auto}.thumbs canvas{height:90px;width:auto;border-radius:6px;border:1px solid var(--bd)}
+.item{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--bd);font-size:.9rem}.item:last-child{border:0}
+.st-done{color:var(--acc)}.st-error{color:var(--err)}.st-queued{color:var(--mut)}
+#msg{color:var(--mut);font-size:.9rem;min-height:1.3em}#msg.err{color:var(--err)}
+.hidden{display:none!important}dialog{border:1px solid var(--bd);border-radius:14px;background:var(--card);color:var(--fg);max-width:520px;width:calc(100% - 32px)}
+a{color:var(--acc)}small{color:var(--mut)}
+</style>
+</head>
+<body>
+<header><h1>🧾 Receipt Scanner</h1><div class="row" style="flex:0"><button class="sec" id="btn-hist">History</button><button class="sec" id="btn-set">Settings</button></div></header>
+<main>
+  <p id="msg" role="status"></p>
+
+  <section id="s-start" class="card">
+    <div class="row">
+      <label class="btn">📷 Scan<input id="in-cam" type="file" accept="image/*" capture="environment" hidden></label>
+      <label class="btn sec">🖼 Gallery / PDF<input id="in-file" type="file" accept="image/*,application/pdf" multiple hidden></label>
+    </div>
+    <small>Everything runs on your device. Only the final PDF goes to your own Google Drive.</small>
+  </section>
+
+  <section id="s-crop" class="card hidden">
+    <b>Adjust corners</b> <small id="crop-pg"></small>
+    <div id="crop-host"></div>
+    <div class="row" style="margin-top:10px"><button class="sec" id="crop-reset">Full page</button><button id="crop-ok">Done</button></div>
+  </section>
+
+  <section id="s-review" class="card hidden">
+    <div class="thumbs" id="thumbs"></div>
+    <div class="row" style="margin-top:10px">
+      <div><label for="f-mode">Look</label><select id="f-mode"><option value="color">Color</option><option value="bw">Black &amp; white</option></select></div>
+      <div style="flex:0 0 auto;align-self:end"><button class="sec" id="btn-addpage">+ Page</button></div>
+    </div>
+    <label for="f-name">File name</label><input id="f-name">
+    <div class="row"><div><label for="f-vendor">Vendor</label><input id="f-vendor"></div><div><label for="f-date">Date</label><input id="f-date" type="date"></div><div><label for="f-total">Total</label><input id="f-total" inputmode="decimal"></div></div>
+    <small id="f-folder"></small>
+    <div class="row" style="margin-top:12px"><button class="sec" id="btn-cancel">Cancel</button><button id="btn-save">Save to Drive</button></div>
+  </section>
+
+  <section id="s-hist" class="card hidden"><b>History &amp; upload queue</b><div id="hist"></div><div class="row" style="margin-top:10px"><button class="sec" id="btn-retry">Retry pending</button></div></section>
+</main>
+
+<dialog id="dlg">
+  <form method="dialog">
+    <b>Settings</b>
+    <label for="s-method">Drive method</label>
+    <select id="s-method"><option value="appsScript">A: Apps Script web app (simplest)</option><option value="google">B: Google sign-in (own OAuth Client ID)</option></select>
+    <div id="s-a"><label for="s-endpoint">Apps Script web-app URL</label><input id="s-endpoint" placeholder="https://script.google.com/macros/s/…/exec"></div>
+    <div id="s-b" class="hidden"><label for="s-client">OAuth Client ID</label><input id="s-client" placeholder="…apps.googleusercontent.com"></div>
+    <label for="s-root">Root folder in Drive</label><input id="s-root">
+    <label for="s-color">Default look</label><select id="s-color"><option value="color">Color</option><option value="bw">Black &amp; white</option></select>
+    <p><small>Setup steps: see the <a href="https://github.com/LupovichRan/Kabala/blob/main/receipt-scanner/README.md" target="_blank" rel="noopener">README</a>. The URL is stored only in this browser.</small></p>
+    <div class="row"><button class="sec" value="cancel">Close</button><button id="s-save" value="ok">Save</button></div>
+  </form>
+</dialog>
+<script type="module" src="app.js"></script>
+</body>
+</html>
