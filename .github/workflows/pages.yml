@@ -2,7 +2,7 @@ name: Deploy Receipt Scanner to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches: [main, ccr-3164a445-qqptxw]
     paths: ['receipt-scanner/**', '.github/workflows/pages.yml']
   workflow_dispatch:
 
